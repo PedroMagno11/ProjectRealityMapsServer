@@ -6,9 +6,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.hateoas.EntityModel;
@@ -20,8 +19,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import br.com.pedromagno.projectrealitymapsserver.domain.Mapa;
 
@@ -32,9 +29,6 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 @RequestMapping("/mapas")
 public class MapsController {
 
-    @Value("${maps.address}")
-    private String BASE_DIR;
-
     private final MapsService mapsService;
 
     public MapsController(MapsService mapsService) {
@@ -43,28 +37,21 @@ public class MapsController {
 
     @Operation(summary = "Obtém todos os mapas")
     @ApiResponses(value={
-            @ApiResponse(responseCode = "200", description = "Mapas encontrados",
-            content = {
-                    @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = Mapa.class))
-            }),
-            @ApiResponse(responseCode = "404", description = "Mapas não encontrados", content = @Content)
+            @ApiResponse(responseCode = "200", description = "Mapas encontrados"),
+            @ApiResponse(responseCode = "404", description = "Mapas não encontrados")
     })
     @GetMapping()
-    public PageImpl<EntityModel<Mapa>> listarMapas(@RequestParam(defaultValue = "0") int pagina, @RequestParam(defaultValue = "10") int quantidadeDeMapas) {
-        Pageable pageable = PageRequest.of(pagina, quantidadeDeMapas);
+    public ResponseEntity<Page<EntityModel<Mapa>>> listarMapas(@RequestParam(defaultValue = "0") int pagina,
+                                                               @RequestParam(defaultValue = "10") int quantidade_de_mapas) {
+        Pageable pageable = PageRequest.of(pagina, quantidade_de_mapas);
 
-        List<EntityModel<Mapa>> mapas = mapsService.listarMapas(pageable)
-                .stream()
-                .map(mapa -> {
-
-                    EntityModel<Mapa> entityMapa = EntityModel.of(mapa,
-                            linkTo(methodOn(MapsController.class).getMapa(mapa.getNome())).withRel(mapa.getNome()));
-
-                    return entityMapa;
-                }).collect(Collectors.toList());
-
-        return new PageImpl<>(mapas, pageable, 10);
+        try{
+            Page<EntityModel<Mapa>> mapas = mapsService.listarMapas(pageable)
+                    .map(mapa -> EntityModel.of(mapa, linkTo(methodOn(MapsController.class).getMapa(mapa.getNome())).withRel(mapa.getNome())));
+            return new ResponseEntity<>(mapas, HttpStatus.OK);
+        } catch (Exception e){
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
     }
 
     @Operation(summary = "Obtém mapa pelo nome")
@@ -78,10 +65,19 @@ public class MapsController {
             content = @Content)
     })
     @GetMapping("/{mapa}")
-    public EntityModel<Mapa> getMapa(@PathVariable String mapa) {
-        Mapa map = mapsService.buscarMapa(mapa);
+    public ResponseEntity<EntityModel<Mapa>> getMapa(@PathVariable String mapa) {
+        try {
+            Mapa map = mapsService.buscarMapa(mapa);
+            if(map.getTiles().isEmpty()){
+                return ResponseEntity.notFound().build();
+            }
+            EntityModel entityMap = EntityModel.of(map, linkTo(methodOn(MapsController.class).getMapa(map.getNome())).withSelfRel());
 
-        return EntityModel.of(map, linkTo(methodOn(MapsController.class).getMapa(map.getNome())).withSelfRel());
+            return new ResponseEntity<>(entityMap, HttpStatus.OK);
+
+        } catch (Exception e){
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Operation(summary = "Obtém os tiles do mapa")
@@ -94,7 +90,7 @@ public class MapsController {
             content = @Content)
     })
     @GetMapping("/{mapa}/{zoom}/{x}/{y}")
-    public ResponseEntity getTile(@PathVariable String mapa, @PathVariable String zoom,
+    public ResponseEntity<Resource> getTile(@PathVariable String mapa, @PathVariable String zoom,
                                             @PathVariable String x, @PathVariable String y) {
         try {
             Resource resource = mapsService.getTile(mapa, zoom, x, y);
@@ -103,7 +99,7 @@ public class MapsController {
 
             return new ResponseEntity<>(resource, headers, HttpStatus.OK);
         } catch (IOException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 }

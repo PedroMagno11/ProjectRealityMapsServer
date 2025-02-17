@@ -1,9 +1,11 @@
 package br.com.pedromagno.projectrealitymapsserver.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.hateoas.RepresentationModel;
 
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Mapa extends RepresentationModel<Mapa> {
     private String nome;
     private List<String> tiles;
