@@ -4,32 +4,37 @@ import org.springframework.hateoas.RepresentationModel;
 
 import java.util.List;
 
-public class Map extends RepresentationModel<Map> {
-    private String name;
-    private List<Tile> tiles;
+public class Mapa extends RepresentationModel<Mapa> {
+    private String nome;
+    private List<String> tiles;
 
-    public Map() {
+    public Mapa() {
 
     }
 
-    public Map(String name, List<Tile> tiles) {
-        this.name = name;
+    public Mapa(String name, List<String> tiles) {
+        this.nome = name;
         this.tiles = tiles;
     }
 
-    public String getName() {
-        return name;
+    public Mapa(String nome) {
+        this.nome = nome;
     }
 
-    public void setName(String name) {
-        this.name = name;
+
+    public String getNome() {
+        return nome;
     }
 
-    public List<Tile> getTiles() {
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public List<String> getTiles() {
         return tiles;
     }
 
-    public void setTiles(List<Tile> tiles) {
+    public void setTiles(List<String> tiles) {
         this.tiles = tiles;
     }
 }
